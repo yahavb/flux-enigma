@@ -8,6 +8,24 @@ from neuronx_distributed.parallel_layers import parallel_state
 from neuronx_distributed.parallel_layers.layers \
     import ColumnParallelLinear, RowParallelLinear
 
+from diffusers.models.attention_processor import AttnProcessor
+
+class MyAttentionProcessor(AttnProcessor):
+    def __call__(self, attn, hidden_states,encoder_hidden_states=None,cross_attention_kwargs=None,**kwargs):
+        if hidden_states is not None:
+          # If norm_q has shape [128], we assume n_heads * 128 = hidden_states.shape[-1].
+          n_heads = 24  # For example
+          head_dim = 128
+          batch, seq_len, dim = hidden_states.shape
+          assert dim == n_heads * head_dim, f"Dim mismatch: got {dim}, expected {n_heads*head_dim}"
+        
+          # 1) [B, T, 3072] -> [B, T, n_heads, head_dim] = [B, T, 24, 128]
+          hidden_states = hidden_states.view(batch, seq_len, n_heads, head_dim)
+          # 2) Apply LN per-head
+          hidden_states = attn.norm_q(hidden_states)
+          # 3) Flatten back
+          hidden_states = hidden_states.view(batch, seq_len, dim)
+        return hidden_states, encoder_hidden_states
 
 class TracingTransformerEmbedderWrapper(nn.Module):
     def __init__(
@@ -135,7 +153,10 @@ class TracingSingleTransformerBlock(nn.Module):
         hidden_states = residual + hidden_states
         if hidden_states.dtype == torch.float16:
             hidden_states = hidden_states.clip(-65504, 65504)
-
+        print("norm_hidden_states.shape =", norm_hidden_states.shape)
+        out = self.proj_mlp(norm_hidden_states)
+        print("out.shape =", out.shape)
+        print("self.proj_mlp.bias.shape =", self.proj_mlp.bias.shape)
         return hidden_states
 
 
@@ -297,6 +318,9 @@ def shard_attn_lite(block):
         block.proj_mlp.out_features,
         bias=(block.proj_mlp.bias is not None),
         gather_output=True)
+    print("proj_mlp in_features:", block.proj_mlp.in_features)
+    print("proj_mlp out_features:", block.proj_mlp.out_features)
+    print("proj_mlp.bias.shape:", block.proj_mlp.bias.shape)
     block.proj_mlp.weight.data = get_sharded_data(orig_mlp.weight.data, 0)
     if block.proj_mlp.bias is not None:
         block.proj_mlp.bias.data = get_sharded_data(orig_mlp.bias.data, 0)
