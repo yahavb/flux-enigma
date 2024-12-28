@@ -171,8 +171,7 @@ def shard_attn(attn: Attention):
         gather_output=True)
     attn.to_q.weight.data = get_sharded_data(orig_q.weight.data, 0)
     if attn.to_q.bias is not None:
-        #attn.to_q.bias.data = get_sharded_data(orig_q.bias.data, 0)
-        attn.to_q.bias.data = orig_q.bias.data.detach()
+        attn.to_q.bias.data = get_sharded_data(orig_q.bias.data, 0)
     del (orig_q)
 
     orig_k = attn.to_k
@@ -183,8 +182,7 @@ def shard_attn(attn: Attention):
         gather_output=True)
     attn.to_k.weight.data = get_sharded_data(orig_k.weight.data, 0)
     if attn.to_k.bias is not None:
-        #attn.to_k.bias.data = get_sharded_data(orig_k.bias.data, 0)
-        attn.to_k.bias.data = orig_k.bias.data.detach()
+        attn.to_k.bias.data = get_sharded_data(orig_k.bias.data, 0)
     del (orig_k)
 
     orig_v = attn.to_v
@@ -195,8 +193,7 @@ def shard_attn(attn: Attention):
         gather_output=True)
     attn.to_v.weight.data = get_sharded_data(orig_v.weight.data, 0)
     if attn.to_v.bias is not None:
-        #attn.to_v.bias.data = get_sharded_data(orig_v.bias.data, 0)
-        attn.to_v.bias.data = orig_v.bias.data.detach()
+        attn.to_v.bias.data = get_sharded_data(orig_v.bias.data, 0)
     del (orig_v)
 
     orig_q_proj = attn.add_q_proj
@@ -207,8 +204,7 @@ def shard_attn(attn: Attention):
         gather_output=True)
     attn.add_q_proj.weight.data = get_sharded_data(orig_q_proj.weight.data, 0)
     if attn.add_q_proj.bias is not None:
-        #attn.add_q_proj.bias.data = get_sharded_data(orig_q_proj.bias.data, 0)
-        attn.add_q_proj.bias.data = orig_q_proj.bias.data.detach()
+        attn.add_q_proj.bias.data = get_sharded_data(orig_q_proj.bias.data, 0)
     del (orig_q_proj)
 
     orig_k_proj = attn.add_k_proj
@@ -219,8 +215,7 @@ def shard_attn(attn: Attention):
         gather_output=True)
     attn.add_k_proj.weight.data = get_sharded_data(orig_k_proj.weight.data, 0)
     if attn.add_k_proj.bias is not None:
-        #attn.add_k_proj.bias.data = get_sharded_data(orig_k_proj.bias.data, 0)
-        attn.add_k_proj.bias.data = orig_k_proj.bias.data.detach()
+        attn.add_k_proj.bias.data = get_sharded_data(orig_k_proj.bias.data, 0)
     del (orig_k_proj)
 
     orig_v_proj = attn.add_v_proj
@@ -231,8 +226,7 @@ def shard_attn(attn: Attention):
         gather_output=True)
     attn.add_v_proj.weight.data = get_sharded_data(orig_v_proj.weight.data, 0)
     if attn.add_v_proj.bias is not None:
-        #attn.add_v_proj.bias.data = get_sharded_data(orig_v_proj.bias.data, 0)
-        attn.add_v_proj.bias.data = orig_v_proj.bias.data.detach()
+        attn.add_v_proj.bias.data = get_sharded_data(orig_v_proj.bias.data, 0)
     del (orig_v_proj)
 
     orig_out = attn.to_out[0]
@@ -272,8 +266,7 @@ def shard_attn_lite(block):
         gather_output=True)
     attn.to_q.weight.data = get_sharded_data(orig_q.weight.data, 0)
     if attn.to_q.bias is not None:
-        #attn.to_q.bias.data = get_sharded_data(orig_q.bias.data, 0)
-        attn.to_q.bias.data = orig_q.bias.data.detach()
+        attn.to_q.bias.data = get_sharded_data(orig_q.bias.data, 0)
     del (orig_q)
 
     orig_k = attn.to_k
@@ -284,8 +277,7 @@ def shard_attn_lite(block):
         gather_output=True)
     attn.to_k.weight.data = get_sharded_data(orig_k.weight.data, 0)
     if attn.to_k.bias is not None:
-        #attn.to_k.bias.data = get_sharded_data(orig_k.bias.data, 0)
-        attn.to_k.bias.data = orig_k.bias.data.detach()
+        attn.to_k.bias.data = get_sharded_data(orig_k.bias.data, 0)
     del (orig_k)
 
     orig_v = attn.to_v
@@ -296,8 +288,7 @@ def shard_attn_lite(block):
         gather_output=True)
     attn.to_v.weight.data = get_sharded_data(orig_v.weight.data, 0)
     if attn.to_v.bias is not None:
-        #attn.to_v.bias.data = get_sharded_data(orig_v.bias.data, 0)
-        attn.to_v.bias.data = orig_v.bias.data.detach()
+        attn.to_v.bias.data = get_sharded_data(orig_v.bias.data, 0)
     del (orig_v)
 
     orig_mlp = block.proj_mlp
@@ -308,8 +299,7 @@ def shard_attn_lite(block):
         gather_output=True)
     block.proj_mlp.weight.data = get_sharded_data(orig_mlp.weight.data, 0)
     if block.proj_mlp.bias is not None:
-        #block.proj_mlp.bias.data = get_sharded_data(orig_mlp.bias.data, 0)
-        block.proj_mlp.bias.data = orig_mlp.bias.data.detach()
+        block.proj_mlp.bias.data = get_sharded_data(orig_mlp.bias.data, 0)
     del (orig_mlp)
 
     orig_out = block.proj_out
