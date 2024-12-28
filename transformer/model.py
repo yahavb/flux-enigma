@@ -159,17 +159,20 @@ def get_sharded_data(data, dim):
 
 
 def shard_attn(attn: Attention):
-    attn.heads = 3
+    #attn.heads = 3
+    print("shard_attn -> attn.to_q.in_features =", attn.to_q.in_features)
+    print("shard_attn -> attn.norm_q.weight.shape =", attn.norm_q.weight.shape)
 
     orig_q = attn.to_q
     attn.to_q = ColumnParallelLinear(
         attn.to_q.in_features,
         attn.to_q.out_features,
         bias=(attn.to_q.bias is not None),
-        gather_output=False)
+        gather_output=True)
     attn.to_q.weight.data = get_sharded_data(orig_q.weight.data, 0)
     if attn.to_q.bias is not None:
-        attn.to_q.bias.data = get_sharded_data(orig_q.bias.data, 0)
+        #attn.to_q.bias.data = get_sharded_data(orig_q.bias.data, 0)
+        attn.to_q.bias.data = orig_q.bias.data.detach()
     del (orig_q)
 
     orig_k = attn.to_k
@@ -177,10 +180,11 @@ def shard_attn(attn: Attention):
         attn.to_k.in_features,
         attn.to_k.out_features,
         bias=(attn.to_k.bias is not None),
-        gather_output=False)
+        gather_output=True)
     attn.to_k.weight.data = get_sharded_data(orig_k.weight.data, 0)
     if attn.to_k.bias is not None:
-        attn.to_k.bias.data = get_sharded_data(orig_k.bias.data, 0)
+        #attn.to_k.bias.data = get_sharded_data(orig_k.bias.data, 0)
+        attn.to_k.bias.data = orig_k.bias.data.detach()
     del (orig_k)
 
     orig_v = attn.to_v
@@ -188,10 +192,11 @@ def shard_attn(attn: Attention):
         attn.to_v.in_features,
         attn.to_v.out_features,
         bias=(attn.to_v.bias is not None),
-        gather_output=False)
+        gather_output=True)
     attn.to_v.weight.data = get_sharded_data(orig_v.weight.data, 0)
     if attn.to_v.bias is not None:
-        attn.to_v.bias.data = get_sharded_data(orig_v.bias.data, 0)
+        #attn.to_v.bias.data = get_sharded_data(orig_v.bias.data, 0)
+        attn.to_v.bias.data = orig_v.bias.data.detach()
     del (orig_v)
 
     orig_q_proj = attn.add_q_proj
@@ -199,10 +204,11 @@ def shard_attn(attn: Attention):
         attn.add_q_proj.in_features,
         attn.add_q_proj.out_features,
         bias=(attn.add_q_proj.bias is not None),
-        gather_output=False)
+        gather_output=True)
     attn.add_q_proj.weight.data = get_sharded_data(orig_q_proj.weight.data, 0)
     if attn.add_q_proj.bias is not None:
-        attn.add_q_proj.bias.data = get_sharded_data(orig_q_proj.bias.data, 0)
+        #attn.add_q_proj.bias.data = get_sharded_data(orig_q_proj.bias.data, 0)
+        attn.add_q_proj.bias.data = orig_q_proj.bias.data.detach()
     del (orig_q_proj)
 
     orig_k_proj = attn.add_k_proj
@@ -210,10 +216,11 @@ def shard_attn(attn: Attention):
         attn.add_k_proj.in_features,
         attn.add_k_proj.out_features,
         bias=(attn.add_k_proj.bias is not None),
-        gather_output=False)
+        gather_output=True)
     attn.add_k_proj.weight.data = get_sharded_data(orig_k_proj.weight.data, 0)
     if attn.add_k_proj.bias is not None:
-        attn.add_k_proj.bias.data = get_sharded_data(orig_k_proj.bias.data, 0)
+        #attn.add_k_proj.bias.data = get_sharded_data(orig_k_proj.bias.data, 0)
+        attn.add_k_proj.bias.data = orig_k_proj.bias.data.detach()
     del (orig_k_proj)
 
     orig_v_proj = attn.add_v_proj
@@ -221,10 +228,11 @@ def shard_attn(attn: Attention):
         attn.add_v_proj.in_features,
         attn.add_v_proj.out_features,
         bias=(attn.add_v_proj.bias is not None),
-        gather_output=False)
+        gather_output=True)
     attn.add_v_proj.weight.data = get_sharded_data(orig_v_proj.weight.data, 0)
     if attn.add_v_proj.bias is not None:
-        attn.add_v_proj.bias.data = get_sharded_data(orig_v_proj.bias.data, 0)
+        #attn.add_v_proj.bias.data = get_sharded_data(orig_v_proj.bias.data, 0)
+        attn.add_v_proj.bias.data = orig_v_proj.bias.data.detach()
     del (orig_v_proj)
 
     orig_out = attn.to_out[0]
@@ -232,7 +240,7 @@ def shard_attn(attn: Attention):
         attn.to_out[0].in_features,
         attn.to_out[0].out_features,
         bias=(attn.to_out[0].bias is not None),
-        input_is_parallel=True)
+        input_is_parallel=False)
     attn.to_out[0].weight.data = get_sharded_data(orig_out.weight.data, 1)
     if attn.to_out[0].bias is not None:
         attn.to_out[0].bias.data = orig_out.bias.data.detach()
@@ -243,27 +251,29 @@ def shard_attn(attn: Attention):
         attn.to_add_out.in_features,
         attn.to_add_out.out_features,
         bias=(attn.to_add_out.bias is not None),
-        input_is_parallel=True)
+        input_is_parallel=False)
     attn.to_add_out.weight.data = get_sharded_data(orig_out.weight.data, 1)
     if attn.to_add_out.bias is not None:
         attn.to_add_out.bias.data = orig_out.bias.data.detach()
     del (orig_out)
+
     return attn
 
 
 def shard_attn_lite(block):
     attn = block.attn
-    attn.heads = 3
+    #attn.heads = 3
 
     orig_q = attn.to_q
     attn.to_q = ColumnParallelLinear(
         attn.to_q.in_features,
         attn.to_q.out_features,
         bias=(attn.to_q.bias is not None),
-        gather_output=False)
+        gather_output=True)
     attn.to_q.weight.data = get_sharded_data(orig_q.weight.data, 0)
     if attn.to_q.bias is not None:
-        attn.to_q.bias.data = get_sharded_data(orig_q.bias.data, 0)
+        #attn.to_q.bias.data = get_sharded_data(orig_q.bias.data, 0)
+        attn.to_q.bias.data = orig_q.bias.data.detach()
     del (orig_q)
 
     orig_k = attn.to_k
@@ -271,10 +281,11 @@ def shard_attn_lite(block):
         attn.to_k.in_features,
         attn.to_k.out_features,
         bias=(attn.to_k.bias is not None),
-        gather_output=False)
+        gather_output=True)
     attn.to_k.weight.data = get_sharded_data(orig_k.weight.data, 0)
     if attn.to_k.bias is not None:
-        attn.to_k.bias.data = get_sharded_data(orig_k.bias.data, 0)
+        #attn.to_k.bias.data = get_sharded_data(orig_k.bias.data, 0)
+        attn.to_k.bias.data = orig_k.bias.data.detach()
     del (orig_k)
 
     orig_v = attn.to_v
@@ -282,10 +293,11 @@ def shard_attn_lite(block):
         attn.to_v.in_features,
         attn.to_v.out_features,
         bias=(attn.to_v.bias is not None),
-        gather_output=False)
+        gather_output=True)
     attn.to_v.weight.data = get_sharded_data(orig_v.weight.data, 0)
     if attn.to_v.bias is not None:
-        attn.to_v.bias.data = get_sharded_data(orig_v.bias.data, 0)
+        #attn.to_v.bias.data = get_sharded_data(orig_v.bias.data, 0)
+        attn.to_v.bias.data = orig_v.bias.data.detach()
     del (orig_v)
 
     orig_mlp = block.proj_mlp
@@ -293,10 +305,11 @@ def shard_attn_lite(block):
         block.proj_mlp.in_features,
         block.proj_mlp.out_features,
         bias=(block.proj_mlp.bias is not None),
-        gather_output=False)
+        gather_output=True)
     block.proj_mlp.weight.data = get_sharded_data(orig_mlp.weight.data, 0)
     if block.proj_mlp.bias is not None:
-        block.proj_mlp.bias.data = get_sharded_data(orig_mlp.bias.data, 0)
+        #block.proj_mlp.bias.data = get_sharded_data(orig_mlp.bias.data, 0)
+        block.proj_mlp.bias.data = orig_mlp.bias.data.detach()
     del (orig_mlp)
 
     orig_out = block.proj_out
@@ -306,7 +319,7 @@ def shard_attn_lite(block):
         3072,
         out_features,
         bias=(bias is not None),
-        input_is_parallel=True)
+        input_is_parallel=False)
     block.proj_out.weight.data = get_sharded_data(
         orig_out.weight.data[..., 0:3072], 1)
     if block.proj_out.bias is not None:
@@ -316,7 +329,7 @@ def shard_attn_lite(block):
         12288,
         out_features,
         bias=False,
-        input_is_parallel=True)
+        input_is_parallel=False)
     block.proj_out_2.weight.data = get_sharded_data(
         orig_out.weight.data[..., 3072:15360], 1)
     del (orig_out)
