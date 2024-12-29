@@ -43,19 +43,15 @@ class NeuronFluxTransformer2DModel(nn.Module):
         context_embedder
     ):
         super().__init__()
-        with torch_neuronx.experimental.neuron_cores_context(start_nc=-1,
-                                                             nc_count=8):
-            self.embedders_model = \
-                  neuronx_distributed.trace.parallel_model_load(EMBEDDERS_DIR)
-            self.transformer_blocks_model = \
-                neuronx_distributed.trace.parallel_model_load(
-                    TRANSFORMER_BLOCKS_DIR)
-            self.single_transformer_blocks_model = \
-                neuronx_distributed.trace.parallel_model_load(
-                    SINGLE_TRANSFORMER_BLOCKS_DIR)
-            self.out_layers_model = \
-                neuronx_distributed.trace.parallel_model_load(
-                    OUT_LAYERS_DIR)
+        with torch_neuronx.experimental.neuron_cores_context(start_nc=0, nc_count=2):
+            self.embedders_model = neuronx_distributed.trace.parallel_model_load(EMBEDDERS_DIR)
+            self.single_transformer_blocks_model = neuronx_distributed.trace.parallel_model_load(SINGLE_TRANSFORMER_BLOCKS_DIR)
+            self.out_layers_model = neuronx_distributed.trace.parallel_model_load(OUT_LAYERS_DIR)
+
+        # 2) Place transformer_blocks on device 1 (cores 2,3)
+        with torch_neuronx.experimental.neuron_cores_context(start_nc=2, nc_count=2):
+            self.transformer_blocks_model = neuronx_distributed.trace.parallel_model_load(TRANSFORMER_BLOCKS_DIR)
+
         self.config = config
         self.x_embedder = x_embedder
         self.context_embedder = context_embedder
@@ -152,20 +148,21 @@ def run_inference(
     pipe = FluxPipeline.from_pretrained(
         "black-forest-labs/FLUX.1-dev",
         torch_dtype=torch.bfloat16)
-    with torch_neuronx.experimental.neuron_cores_context(start_nc=-1):
+    with torch_neuronx.experimental.neuron_cores_context(start_nc=0, nc_count=2):
         pipe.text_encoder = NeuronFluxCLIPTextEncoderModel(
             pipe.text_encoder.dtype,
             torch.jit.load(TEXT_ENCODER_PATH))
-    with torch_neuronx.experimental.neuron_cores_context(start_nc=-1):
+    with torch_neuronx.experimental.neuron_cores_context(start_nc=4, nc_count=2):
         pipe.text_encoder_2 = NeuronFluxT5TextEncoderModel(
             pipe.text_encoder_2.dtype,
             torch.jit.load(TEXT_ENCODER_2_PATH))
+    with torch_neuronx.experimental.neuron_cores_context(start_nc=6, nc_count=2):
+        pipe.vae.decoder = torch.jit.load(VAE_DECODER_PATH)
+
     pipe.transformer = NeuronFluxTransformer2DModel(
         pipe.transformer.config,
         pipe.transformer.x_embedder,
         pipe.transformer.context_embedder)
-    with torch_neuronx.experimental.neuron_cores_context(start_nc=-1):
-        pipe.vae.decoder = torch.jit.load(VAE_DECODER_PATH)
 
     image = pipe(
         prompt,
