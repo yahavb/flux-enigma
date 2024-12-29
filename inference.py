@@ -43,14 +43,18 @@ class NeuronFluxTransformer2DModel(nn.Module):
         context_embedder
     ):
         super().__init__()
+        # Device0 (cores 0,1) -> place "embedders" + "out_layers"
         with torch_neuronx.experimental.neuron_cores_context(start_nc=0, nc_count=2):
             self.embedders_model = neuronx_distributed.trace.parallel_model_load(EMBEDDERS_DIR)
-            self.single_transformer_blocks_model = neuronx_distributed.trace.parallel_model_load(SINGLE_TRANSFORMER_BLOCKS_DIR)
             self.out_layers_model = neuronx_distributed.trace.parallel_model_load(OUT_LAYERS_DIR)
 
-        # 2) Place transformer_blocks on device 1 (cores 2,3)
+        # Device1 (cores 2,3) -> place "transformer_blocks"
         with torch_neuronx.experimental.neuron_cores_context(start_nc=2, nc_count=2):
             self.transformer_blocks_model = neuronx_distributed.trace.parallel_model_load(TRANSFORMER_BLOCKS_DIR)
+
+        # Device2 (cores 4,5) -> place "single_transformer_blocks"
+        with torch_neuronx.experimental.neuron_cores_context(start_nc=4, nc_count=2):
+            self.single_transformer_blocks_model = neuronx_distributed.trace.parallel_model_load(SINGLE_TRANSFORMER_BLOCKS_DIR)
 
         self.config = config
         self.x_embedder = x_embedder
@@ -148,16 +152,23 @@ def run_inference(
     pipe = FluxPipeline.from_pretrained(
         "black-forest-labs/FLUX.1-dev",
         torch_dtype=torch.bfloat16)
+
+    # text_encoder_1 on device0 (cores [0,1]) if it’s small:
     with torch_neuronx.experimental.neuron_cores_context(start_nc=0, nc_count=2):
         pipe.text_encoder = NeuronFluxCLIPTextEncoderModel(
             pipe.text_encoder.dtype,
             torch.jit.load(TEXT_ENCODER_PATH))
-    with torch_neuronx.experimental.neuron_cores_context(start_nc=4, nc_count=2):
+
+    # text_encoder_2 on device3 (cores [6,7]), for example:
+    with torch_neuronx.experimental.neuron_cores_context(start_nc=6, nc_count=2):
         pipe.text_encoder_2 = NeuronFluxT5TextEncoderModel(
             pipe.text_encoder_2.dtype,
             torch.jit.load(TEXT_ENCODER_2_PATH))
+
+    # VAE decoder also on device3 or device2, it’s small so up to you:
     with torch_neuronx.experimental.neuron_cores_context(start_nc=6, nc_count=2):
         pipe.vae.decoder = torch.jit.load(VAE_DECODER_PATH)
+
 
     pipe.transformer = NeuronFluxTransformer2DModel(
         pipe.transformer.config,
