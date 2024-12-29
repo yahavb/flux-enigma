@@ -26,6 +26,7 @@ class MyAttentionProcessor(AttnProcessor):
           # 3) Flatten back
           hidden_states = hidden_states.view(batch, seq_len, dim)
         return hidden_states, encoder_hidden_states
+        #return hidden_states
 
 class TracingTransformerEmbedderWrapper(nn.Module):
     def __init__(
@@ -143,10 +144,8 @@ class TracingSingleTransformerBlock(nn.Module):
         norm_hidden_states, gate = self.norm(hidden_states, emb=temb)
         mlp_hidden_states = self.act_mlp(self.proj_mlp(norm_hidden_states))
 
-        attn_output = self.attn(
-            hidden_states=norm_hidden_states,
-            image_rotary_emb=image_rotary_emb,
-        )
+        #attn_output = self.attn(hidden_states=norm_hidden_states,image_rotary_emb=image_rotary_emb,)
+        attn_output, cross_output = self.attn(hidden_states=norm_hidden_states, image_rotary_emb=image_rotary_emb)
         gate = gate.unsqueeze(1)
         hidden_states = gate * (self.proj_out(attn_output)
                                 + self.proj_out_2(mlp_hidden_states))
@@ -317,9 +316,9 @@ def shard_attn_lite(block):
         block.proj_mlp.in_features,
         block.proj_mlp.out_features,
         bias=(block.proj_mlp.bias is not None),
-        gather_output=True)
-    print("proj_mlp in_features:", block.proj_mlp.in_features)
-    print("proj_mlp out_features:", block.proj_mlp.out_features)
+        gather_output=False)
+    #print("proj_mlp in_features:", block.proj_mlp.in_features)
+    #print("proj_mlp out_features:", block.proj_mlp.out_features)
     print("proj_mlp.bias.shape:", block.proj_mlp.bias.shape)
     block.proj_mlp.weight.data = get_sharded_data(orig_mlp.weight.data, 0)
     if block.proj_mlp.bias is not None:
@@ -333,7 +332,7 @@ def shard_attn_lite(block):
         3072,
         out_features,
         bias=(bias is not None),
-        input_is_parallel=False)
+        input_is_parallel=True)
     block.proj_out.weight.data = get_sharded_data(
         orig_out.weight.data[..., 0:3072], 1)
     if block.proj_out.bias is not None:
@@ -343,7 +342,7 @@ def shard_attn_lite(block):
         12288,
         out_features,
         bias=False,
-        input_is_parallel=False)
+        input_is_parallel=True)
     block.proj_out_2.weight.data = get_sharded_data(
         orig_out.weight.data[..., 3072:15360], 1)
     del (orig_out)

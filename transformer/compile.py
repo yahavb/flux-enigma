@@ -11,6 +11,7 @@ from model import (TracingTransformerEmbedderWrapper,
                    TracingTransformerBlockWrapper,
                    TracingSingleTransformerBlockWrapper,
                    TracingTransformerOutLayerWrapper,
+                   MyAttentionProcessor,
                    init_transformer)
 
 COMPILER_WORKDIR_ROOT = os.path.dirname(__file__)
@@ -34,6 +35,9 @@ def trace_transformer_blocks():
     pipe = FluxPipeline.from_pretrained(
         "black-forest-labs/FLUX.1-dev",
         torch_dtype=torch.bfloat16)
+    for block in pipe.transformer.transformer_blocks:
+        block.attn.processor = MyAttentionProcessor()
+
     transformer: FluxTransformer2DModel = copy.deepcopy(pipe.transformer)
     del pipe
     init_transformer(transformer)
@@ -47,6 +51,8 @@ def trace_single_transformer_blocks():
     pipe = FluxPipeline.from_pretrained(
         "black-forest-labs/FLUX.1-dev",
         torch_dtype=torch.bfloat16)
+    for block in pipe.transformer.single_transformer_blocks:
+        block.attn.processor = MyAttentionProcessor()
     transformer: FluxTransformer2DModel = copy.deepcopy(pipe.transformer)
     del pipe
     init_transformer(transformer)

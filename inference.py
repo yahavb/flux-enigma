@@ -43,7 +43,7 @@ class NeuronFluxTransformer2DModel(nn.Module):
         context_embedder
     ):
         super().__init__()
-        with torch_neuronx.experimental.neuron_cores_context(start_nc=4,
+        with torch_neuronx.experimental.neuron_cores_context(start_nc=-1,
                                                              nc_count=8):
             self.embedders_model = \
                   neuronx_distributed.trace.parallel_model_load(EMBEDDERS_DIR)
@@ -152,11 +152,11 @@ def run_inference(
     pipe = FluxPipeline.from_pretrained(
         "black-forest-labs/FLUX.1-dev",
         torch_dtype=torch.bfloat16)
-    with torch_neuronx.experimental.neuron_cores_context(start_nc=0):
+    with torch_neuronx.experimental.neuron_cores_context(start_nc=-1):
         pipe.text_encoder = NeuronFluxCLIPTextEncoderModel(
             pipe.text_encoder.dtype,
             torch.jit.load(TEXT_ENCODER_PATH))
-    with torch_neuronx.experimental.neuron_cores_context(start_nc=8):
+    with torch_neuronx.experimental.neuron_cores_context(start_nc=-1):
         pipe.text_encoder_2 = NeuronFluxT5TextEncoderModel(
             pipe.text_encoder_2.dtype,
             torch.jit.load(TEXT_ENCODER_2_PATH))
@@ -164,7 +164,7 @@ def run_inference(
         pipe.transformer.config,
         pipe.transformer.x_embedder,
         pipe.transformer.context_embedder)
-    with torch_neuronx.experimental.neuron_cores_context(start_nc=8):
+    with torch_neuronx.experimental.neuron_cores_context(start_nc=-1):
         pipe.vae.decoder = torch.jit.load(VAE_DECODER_PATH)
 
     image = pipe(
