@@ -120,7 +120,7 @@ def trace_transformer(height, width, max_sequence_length):
     model = neuronx_distributed.trace.parallel_model_trace(
         trace_transformer_blocks,
         sample_inputs,
-        tp_degree=8,
+        tp_degree=2,
         compiler_workdir=os.path.join(COMPILER_WORKDIR_ROOT,
                                       'compiler_workdir'),
         compiler_args="""--model-type=unet-inference"""
@@ -146,7 +146,7 @@ def trace_transformer(height, width, max_sequence_length):
     model = neuronx_distributed.trace.parallel_model_trace(
         trace_single_transformer_blocks,
         sample_inputs,
-        tp_degree=8,
+        tp_degree=2,
         compiler_workdir=os.path.join(COMPILER_WORKDIR_ROOT,
                                       'compiler_workdir'),
         compiler_args="""--model-type=unet-inference"""
