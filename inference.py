@@ -21,6 +21,9 @@ VAE_DECODER_PATH = os.path.join(
     COMPILER_WORKDIR_ROOT,
     'decoder/compiled_model/model.pt')
 
+TEXT_ENCODER_2_DIR = os.path.join(
+    COMPILER_WORKDIR_ROOT,
+    'text_encoder_2/compiled_model/text_encoder_2')
 EMBEDDERS_DIR = os.path.join(
     COMPILER_WORKDIR_ROOT,
     'transformer/compiled_model/embedders')
@@ -131,6 +134,8 @@ class NeuronFluxT5TextEncoderModel(nn.Module):
         self.dtype = dtype
         self.encoder = encoder
         self.device = torch.device("cpu")
+        with torch_neuronx.experimental.neuron_cores_context(start_nc=8):
+          self.text_encoder_2_model = neuronx_distributed.trace.parallel_model_load(TEXT_ENCODER_2_DIR)
 
     def forward(self, emb, output_hidden_states):
         return torch.unsqueeze(self.encoder(emb)["last_hidden_state"], 1)
@@ -148,16 +153,12 @@ def run_inference(
             "black-forest-labs/FLUX.1-dev",
             torch_dtype=torch.bfloat16)
 
-
     with torch_neuronx.experimental.neuron_cores_context(start_nc=8):
         pipe.text_encoder = NeuronFluxCLIPTextEncoderModel(
             pipe.text_encoder.dtype,
             torch.jit.load(TEXT_ENCODER_PATH))
 
-    with torch_neuronx.experimental.neuron_cores_context(start_nc=8):
-        pipe.text_encoder_2 = NeuronFluxT5TextEncoderModel(
-            pipe.text_encoder_2.dtype,
-            torch.jit.load(TEXT_ENCODER_2_PATH))
+    pipe.text_encoder_2 = neuronx_distributed.trace.parallel_model_load(TEXT_ENCODER_2_DIR)
 
     with torch_neuronx.experimental.neuron_cores_context(start_nc=8):
         pipe.vae.decoder = torch.jit.load(VAE_DECODER_PATH)
