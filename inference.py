@@ -37,16 +37,22 @@ TRANSFORMER_BLOCKS_DIR = os.path.join(
     COMPILER_WORKDIR_ROOT,
     'transformer/compiled_model/transformer_blocks')
 
+class CustomFluxPipeline(FluxPipeline):
+    @property
+    def _execution_device(self):
+        return torch.device("cpu")
+
 class TextEncoder2Wrapper(nn.Module):
-    def __init__(self, sharded_model):
+    def __init__(self, sharded_model,dtype=torch.bfloat16):
         super().__init__()
         self.sharded_model = sharded_model
+        self.dtype = dtype
 
     def forward(self, input_ids, output_hidden_states=False, **kwargs):
         attention_mask = (input_ids != 0).long()
         output = self.sharded_model(input_ids,attention_mask)
         last_hidden_state = output[0]
-        processed_output = torch.unsqueeze(last_hidden_state, 1)
+        processed_output = last_hidden_state
         return (processed_output,)
 
 class NeuronFluxTransformer2DModel(nn.Module):
@@ -146,7 +152,7 @@ def run_inference(
         num_inference_steps):
 
     #with torch_neuronx.experimental.neuron_cores_context(start_nc=8):
-    pipe = FluxPipeline.from_pretrained(
+    pipe = CustomFluxPipeline.from_pretrained(
             "black-forest-labs/FLUX.1-dev",
             torch_dtype=torch.bfloat16)
 
