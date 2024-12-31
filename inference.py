@@ -37,6 +37,17 @@ TRANSFORMER_BLOCKS_DIR = os.path.join(
     COMPILER_WORKDIR_ROOT,
     'transformer/compiled_model/transformer_blocks')
 
+class TextEncoder2Wrapper(nn.Module):
+    def __init__(self, sharded_model):
+        super().__init__()
+        self.sharded_model = sharded_model
+
+    def forward(self, input_ids, output_hidden_states=False, **kwargs):
+        attention_mask = (input_ids != 0).long()
+        output = self.sharded_model(input_ids,attention_mask)
+        last_hidden_state = output[0]
+        processed_output = torch.unsqueeze(last_hidden_state, 1)
+        return (processed_output,)
 
 class NeuronFluxTransformer2DModel(nn.Module):
     def __init__(
@@ -127,20 +138,6 @@ class CLIPEncoderOutput():
     def __init__(self, dictionary):
         self.pooler_output = dictionary["pooler_output"]
 
-
-class NeuronFluxT5TextEncoderModel(nn.Module):
-    def __init__(self, dtype, encoder):
-        super().__init__()
-        self.dtype = dtype
-        self.encoder = encoder
-        self.device = torch.device("cpu")
-        with torch_neuronx.experimental.neuron_cores_context(start_nc=8):
-          self.text_encoder_2_model = neuronx_distributed.trace.parallel_model_load(TEXT_ENCODER_2_DIR)
-
-    def forward(self, emb, output_hidden_states):
-        return torch.unsqueeze(self.encoder(emb)["last_hidden_state"], 1)
-
-
 def run_inference(
         prompt,
         height,
@@ -158,10 +155,12 @@ def run_inference(
             pipe.text_encoder.dtype,
             torch.jit.load(TEXT_ENCODER_PATH))
 
-    pipe.text_encoder_2 = neuronx_distributed.trace.parallel_model_load(TEXT_ENCODER_2_DIR)
-
     with torch_neuronx.experimental.neuron_cores_context(start_nc=8):
         pipe.vae.decoder = torch.jit.load(VAE_DECODER_PATH)
+
+    with torch_neuronx.experimental.neuron_cores_context(start_nc=8):
+        sharded_text_encoder_2 = neuronx_distributed.trace.parallel_model_load(TEXT_ENCODER_2_DIR)
+        pipe.text_encoder_2 = TextEncoder2Wrapper(sharded_text_encoder_2)
 
 
     pipe.transformer = NeuronFluxTransformer2DModel(
