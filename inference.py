@@ -63,10 +63,12 @@ class NeuronFluxTransformer2DModel(nn.Module):
         context_embedder
     ):
         super().__init__()
-        with torch_neuronx.experimental.neuron_cores_context(start_nc=0, nc_count=8):
+        with torch_neuronx.experimental.neuron_cores_context(start_nc=2, nc_count=1):
             self.embedders_model = neuronx_distributed.trace.parallel_model_load(EMBEDDERS_DIR)
             self.out_layers_model = neuronx_distributed.trace.parallel_model_load(OUT_LAYERS_DIR)
+        with torch_neuronx.experimental.neuron_cores_context(start_nc=5, nc_count=2):
             self.transformer_blocks_model = neuronx_distributed.trace.parallel_model_load(TRANSFORMER_BLOCKS_DIR)
+        with torch_neuronx.experimental.neuron_cores_context(start_nc=8, nc_count=2):
             self.single_transformer_blocks_model = neuronx_distributed.trace.parallel_model_load(SINGLE_TRANSFORMER_BLOCKS_DIR)
 
         self.config = config
@@ -151,20 +153,20 @@ def run_inference(
         max_sequence_length,
         num_inference_steps):
 
-    #with torch_neuronx.experimental.neuron_cores_context(start_nc=8):
-    pipe = CustomFluxPipeline.from_pretrained(
+    with torch_neuronx.experimental.neuron_cores_context(start_nc=9, nc_count=1):
+       pipe = CustomFluxPipeline.from_pretrained(
             "black-forest-labs/FLUX.1-dev",
             torch_dtype=torch.bfloat16)
 
-    with torch_neuronx.experimental.neuron_cores_context(start_nc=8):
+    with torch_neuronx.experimental.neuron_cores_context(start_nc=2, nc_count=1):
         pipe.text_encoder = NeuronFluxCLIPTextEncoderModel(
             pipe.text_encoder.dtype,
             torch.jit.load(TEXT_ENCODER_PATH))
 
-    with torch_neuronx.experimental.neuron_cores_context(start_nc=8):
+    with torch_neuronx.experimental.neuron_cores_context(start_nc=2, nc_count=1):
         pipe.vae.decoder = torch.jit.load(VAE_DECODER_PATH)
 
-    with torch_neuronx.experimental.neuron_cores_context(start_nc=8):
+    with torch_neuronx.experimental.neuron_cores_context(start_nc=3, nc_count=2):
         sharded_text_encoder_2 = neuronx_distributed.trace.parallel_model_load(TEXT_ENCODER_2_DIR)
         pipe.text_encoder_2 = TextEncoder2Wrapper(sharded_text_encoder_2)
 
