@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+DTYPE='torch.bfloat16'
 
 class TracingVAEDecoderWrapper(nn.Module):
     def __init__(self, decoder):

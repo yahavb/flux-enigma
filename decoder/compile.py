@@ -7,7 +7,7 @@ from diffusers import FluxPipeline
 from model import TracingVAEDecoderWrapper
 
 COMPILER_WORKDIR_ROOT = os.path.dirname(__file__)
-
+DTYPE='torch.bfloat16'
 
 def trace_vae(height, width):
     pipe = FluxPipeline.from_pretrained(
@@ -18,7 +18,7 @@ def trace_vae(height, width):
     del pipe
 
     latents = torch.rand([1, 16, height // 8, width // 8],
-                         dtype=torch.bfloat16)
+                         dtype=DTYPE)
 
     decoder_neuron = torch_neuronx.trace(
         decoder,

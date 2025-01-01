@@ -13,7 +13,8 @@ from model import (
 )
 
 COMPILER_WORKDIR_ROOT = os.path.dirname(__file__)
-
+TP_DEGREE=2
+DTYPE='torch.bfloat16'
 
 def build_text_encoder_2():
     """
@@ -24,7 +25,7 @@ def build_text_encoder_2():
     # Load pipeline and copy the text_encoder_2 from your flux pipeline
     pipe = FluxPipeline.from_pretrained(
         "black-forest-labs/FLUX.1-dev",
-        torch_dtype=torch.bfloat16
+        torch_dtype=DTYPE
     )
     # text_encoder_2 is presumably a T5EncoderModel or custom T5-based module
     text_encoder_2 = copy.deepcopy(pipe.text_encoder_2)
@@ -46,35 +47,28 @@ def trace_text_encoder_2(max_sequence_length=512):
     """
     Trace the T5 text encoder with parallel model trace.
     """
-    # Prepare sample inputs for T5
-    # Typically T5 expects: (batch, seq_len) for input_ids
     input_ids = torch.zeros((1, max_sequence_length), dtype=torch.int64)
     attention_mask = torch.ones((1, max_sequence_length), dtype=torch.int64)
 
     sample_inputs = (input_ids, attention_mask)
 
-    # Use neuronx_distributed.trace.parallel_model_trace
     model = neuronx_distributed.trace.parallel_model_trace(
         build_text_encoder_2,
         sample_inputs,
-        tp_degree=2,  # we want 2 shards
+        tp_degree=TP_DEGREE,  
         compiler_workdir=os.path.join(COMPILER_WORKDIR_ROOT, "compiler_workdir"),
         compiler_args=["--enable-fast-loading-neuron-binaries"],
     )
 
-    # Load asynchronously
     torch_neuronx.async_load(model)
 
-    # Save compiled artifact
     compiled_model_path = os.path.join(COMPILER_WORKDIR_ROOT, "compiled_model")
     if not os.path.exists(compiled_model_path):
         os.mkdir(compiled_model_path)
 
-    # This saves multiple shards: tp_0.pt and tp_1.pt
     model_filename = os.path.join(compiled_model_path, "text_encoder_2")
     neuronx_distributed.trace.parallel_model_save(model, model_filename)
 
-    # Cleanup
     del model
 
 
@@ -84,7 +78,7 @@ if __name__ == "__main__":
         "-m",
         "--max_sequence_length",
         type=int,
-        default=512,
+        default=32,
         help="maximum sequence length for the text embeddings"
     )
     args = parser.parse_args()

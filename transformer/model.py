@@ -10,6 +10,8 @@ from neuronx_distributed.parallel_layers.layers \
 
 from diffusers.models.attention_processor import AttnProcessor
 
+DTYPE='torch.bfloat16'
+
 class MyAttentionProcessor(AttnProcessor):
     def __call__(self, attn, hidden_states,encoder_hidden_states=None,cross_attention_kwargs=None,**kwargs):
         if hidden_states is not None:
@@ -166,12 +168,12 @@ def get_sharded_data(data, dim):
     if dim == 0:
         return data[
             per_partition_size * tp_rank: per_partition_size * (tp_rank + 1)
-            ].clone().to(torch.bfloat16)
+            ].clone().to(DTYPE)
     elif dim == 1:
         return data[:,
                     per_partition_size * tp_rank: per_partition_size *
                     (tp_rank + 1)
-                    ].clone().to(torch.bfloat16)
+                    ].clone().to(DTYPE)
     else:
         raise Exception(
             f"Partiton value of 0,1 are supported, found {dim}."

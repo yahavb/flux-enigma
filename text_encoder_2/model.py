@@ -9,9 +9,7 @@ from neuronx_distributed.parallel_layers.layers import (
     RowParallelLinear,
 )
 
-###############################################################################
-# Helper sharding functions
-###############################################################################
+DTYPE='torch.bfloat16'
 
 def get_sharded_data(data: torch.Tensor, dim: int) -> torch.Tensor:
     """
@@ -25,13 +23,13 @@ def get_sharded_data(data: torch.Tensor, dim: int) -> torch.Tensor:
         return (
             data[per_partition_size * tp_rank : per_partition_size * (tp_rank + 1)]
             .clone()
-            .to(torch.bfloat16)
+            .to(DTYPE)
         )
     elif dim == 1:
         return (
             data[:, per_partition_size * tp_rank : per_partition_size * (tp_rank + 1)]
             .clone()
-            .to(torch.bfloat16)
+            .to(DTYPE)
         )
     else:
         raise ValueError("Partition dimension must be 0 or 1.")

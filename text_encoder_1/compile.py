@@ -6,12 +6,12 @@ from diffusers import FluxPipeline
 from model import TracingCLIPTextEncoderWrapper
 
 COMPILER_WORKDIR_ROOT = os.path.dirname(__file__)
-
+DTYPE='torch.bfloat16'
 
 def trace_text_encoder():
     pipe = FluxPipeline.from_pretrained(
         "black-forest-labs/FLUX.1-dev",
-        torch_dtype=torch.bfloat16)
+        torch_dtype=DTYPE)
     text_encoder = copy.deepcopy(pipe.text_encoder)
     del pipe
 

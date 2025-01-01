@@ -15,12 +15,13 @@ from model import (TracingTransformerEmbedderWrapper,
                    init_transformer)
 
 COMPILER_WORKDIR_ROOT = os.path.dirname(__file__)
-
+TP_DEGREE=2
+DTYPE='torch.bfloat16'
 
 def trace_transformer_embedders():
     pipe = FluxPipeline.from_pretrained(
         "black-forest-labs/FLUX.1-dev",
-        torch_dtype=torch.bfloat16)
+        torch_dtype=DTYPE)
     transformer: FluxTransformer2DModel = copy.deepcopy(pipe.transformer)
     del pipe
     init_transformer(transformer)
@@ -34,7 +35,7 @@ def trace_transformer_embedders():
 def trace_transformer_blocks():
     pipe = FluxPipeline.from_pretrained(
         "black-forest-labs/FLUX.1-dev",
-        torch_dtype=torch.bfloat16)
+        torch_dtype=DTYPE)
     for block in pipe.transformer.transformer_blocks:
         block.attn.processor = MyAttentionProcessor()
 
@@ -50,7 +51,7 @@ def trace_transformer_blocks():
 def trace_single_transformer_blocks():
     pipe = FluxPipeline.from_pretrained(
         "black-forest-labs/FLUX.1-dev",
-        torch_dtype=torch.bfloat16)
+        torch_dtype=DTYPE)
     for block in pipe.transformer.single_transformer_blocks:
         block.attn.processor = MyAttentionProcessor()
     transformer: FluxTransformer2DModel = copy.deepcopy(pipe.transformer)
@@ -65,7 +66,7 @@ def trace_single_transformer_blocks():
 def trace_transformer_out_layers():
     pipe = FluxPipeline.from_pretrained(
         "black-forest-labs/FLUX.1-dev",
-        torch_dtype=torch.bfloat16)
+        torch_dtype=DTYPE)
     transformer: FluxTransformer2DModel = copy.deepcopy(pipe.transformer)
     del pipe
     init_transformer(transformer)
@@ -77,19 +78,19 @@ def trace_transformer_out_layers():
 
 def trace_transformer(height, width, max_sequence_length):
     hidden_states = torch.rand([1, height * width // 256, 3072],
-                               dtype=torch.bfloat16)
-    timestep = torch.rand([1], dtype=torch.bfloat16)
+                               dtype=DTYPE)
+    timestep = torch.rand([1], dtype=DTYPE)
     guidance = torch.rand([1], dtype=torch.float32)
-    pooled_projections = torch.rand([1, 768], dtype=torch.bfloat16)
-    txt_ids = torch.rand([1, max_sequence_length, 3], dtype=torch.bfloat16)
-    img_ids = torch.rand([1, height * width // 256, 3], dtype=torch.bfloat16)
+    pooled_projections = torch.rand([1, 768], dtype=DTYPE)
+    txt_ids = torch.rand([1, max_sequence_length, 3], dtype=DTYPE)
+    img_ids = torch.rand([1, height * width // 256, 3], dtype=DTYPE)
     sample_inputs = hidden_states, timestep, guidance, pooled_projections, \
         txt_ids, img_ids
 
     model = neuronx_distributed.trace.parallel_model_trace(
         trace_transformer_embedders,
         sample_inputs,
-        tp_degree=2,
+        tp_degree=TP_DEGREE,
         compiler_workdir=os.path.join(COMPILER_WORKDIR_ROOT,
                                       'compiler_workdir'),
         compiler_args="""--model-type=unet-inference"""
@@ -107,20 +108,20 @@ def trace_transformer(height, width, max_sequence_length):
     del model
 
     hidden_states = torch.rand([1, height * width // 256, 3072],
-                               dtype=torch.bfloat16)
+                               dtype=DTYPE)
     encoder_hidden_states = torch.rand([1, max_sequence_length, 3072],
-                                       dtype=torch.bfloat16)
-    temb = torch.rand([1, 3072], dtype=torch.bfloat16)
+                                       dtype=DTYPE)
+    temb = torch.rand([1, 3072], dtype=DTYPE)
     image_rotary_emb = torch.rand(
         [1, 1, height * width // 256 + max_sequence_length, 64, 2, 2],
-        dtype=torch.bfloat16)
+        dtype=DTYPE)
     sample_inputs = hidden_states, encoder_hidden_states, \
         temb, image_rotary_emb
 
     model = neuronx_distributed.trace.parallel_model_trace(
         trace_transformer_blocks,
         sample_inputs,
-        tp_degree=2,
+        tp_degree=TP_DEGREE,
         compiler_workdir=os.path.join(COMPILER_WORKDIR_ROOT,
                                       'compiler_workdir'),
         compiler_args="""--model-type=unet-inference"""
@@ -136,17 +137,17 @@ def trace_transformer(height, width, max_sequence_length):
 
     hidden_states = torch.rand(
         [1, height * width // 256 + max_sequence_length, 3072],
-        dtype=torch.bfloat16)
-    temb = torch.rand([1, 3072], dtype=torch.bfloat16)
+        dtype=DTYPE)
+    temb = torch.rand([1, 3072], dtype=DTYPE)
     image_rotary_emb = torch.rand(
         [1, 1, height * width // 256 + max_sequence_length, 64, 2, 2],
-        dtype=torch.bfloat16)
+        dtype=DTYPE)
     sample_inputs = hidden_states, temb, image_rotary_emb
 
     model = neuronx_distributed.trace.parallel_model_trace(
         trace_single_transformer_blocks,
         sample_inputs,
-        tp_degree=2,
+        tp_degree=TP_DEGREE,
         compiler_workdir=os.path.join(COMPILER_WORKDIR_ROOT,
                                       'compiler_workdir'),
         compiler_args="""--model-type=unet-inference"""
@@ -162,16 +163,16 @@ def trace_transformer(height, width, max_sequence_length):
 
     hidden_states = torch.rand(
         [1, height * width // 256 + max_sequence_length, 3072],
-        dtype=torch.bfloat16)
+        dtype=DTYPE)
     encoder_hidden_states = torch.rand([1, max_sequence_length, 3072],
-                                       dtype=torch.bfloat16)
-    temb = torch.rand([1, 3072], dtype=torch.bfloat16)
+                                       dtype=DTYPE)
+    temb = torch.rand([1, 3072], dtype=DTYPE)
     sample_inputs = hidden_states, encoder_hidden_states, temb
 
     model = neuronx_distributed.trace.parallel_model_trace(
         trace_transformer_out_layers,
         sample_inputs,
-        tp_degree=2,
+        tp_degree=TP_DEGREE,
         compiler_workdir=os.path.join(COMPILER_WORKDIR_ROOT,
                                       'compiler_workdir'),
         compiler_args="""--model-type=unet-inference"""
